@@ -1,48 +1,56 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UserWarning } from './UserWarning';
 import { Todo } from './types/Todo';
 import { getTodos, USER_ID } from './api/todos';
+import cn from 'classnames';
+import { FilterStatus } from './types/FilterStatus';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<FilterStatus>(FilterStatus.All);
   const [error, setError] = useState('');
+
+  const showError = (message: string) => {
+    setError(message);
+
+    setTimeout(() => {
+      setError('');
+    }, 3000);
+  };
 
   useEffect(() => {
     setError('');
 
     getTodos()
-      .then(todosFromServer => {
-        setTodos(todosFromServer);
-      })
+      .then(setTodos)
       .catch(() => {
-        setError('Unable to load todos');
-
-        setTimeout(() => {
-          setError('');
-        }, 3000);
+        showError('Unable to load todos');
       });
   }, []);
+
+  const activeTodosCount = useMemo(() => {
+    return todos.filter(todo => !todo.completed).length;
+  }, [todos]);
+
+  const visibleTodos = useMemo(() => {
+    return todos.filter(todo => {
+      if (filter === FilterStatus.Active) {
+        return !todo.completed;
+      }
+
+      if (filter === FilterStatus.Completed) {
+        return todo.completed;
+      }
+
+      return true;
+    });
+  }, [todos, filter]);
 
   if (!USER_ID) {
     return <UserWarning />;
   }
-
-  const activeTodosCount = todos.filter(todo => !todo.completed).length;
-
-  const visibleTodos = todos.filter(todo => {
-    if (filter === 'active') {
-      return !todo.completed;
-    }
-
-    if (filter === 'completed') {
-      return todo.completed;
-    }
-
-    return true;
-  });
 
   return (
     <div className="todoapp">
@@ -75,7 +83,9 @@ export const App: React.FC = () => {
               <div
                 key={todo.id}
                 data-cy="Todo"
-                className={todo.completed ? 'todo completed' : 'todo'}
+                className={cn('todo', {
+                  completed: todo.completed,
+                })}
               >
                 <label className="todo__status-label">
                   <input
@@ -119,35 +129,33 @@ export const App: React.FC = () => {
             <nav className="filter" data-cy="Filter">
               <a
                 href="#/"
-                className={
-                  filter === 'all' ? 'filter__link selected' : 'filter__link'
-                }
+                className={cn('filter__link', {
+                  selected: filter === FilterStatus.All,
+                })}
                 data-cy="FilterLinkAll"
-                onClick={() => setFilter('all')}
+                onClick={() => setFilter(FilterStatus.All)}
               >
                 All
               </a>
 
               <a
                 href="#/active"
-                className={
-                  filter === 'active' ? 'filter__link selected' : 'filter__link'
-                }
+                className={cn('filter__link', {
+                  selected: filter === FilterStatus.Active,
+                })}
                 data-cy="FilterLinkActive"
-                onClick={() => setFilter('active')}
+                onClick={() => setFilter(FilterStatus.Active)}
               >
                 Active
               </a>
 
               <a
                 href="#/completed"
-                className={
-                  filter === 'completed'
-                    ? 'filter__link selected'
-                    : 'filter__link'
-                }
+                className={cn('filter__link', {
+                  selected: filter === FilterStatus.Completed,
+                })}
                 data-cy="FilterLinkCompleted"
-                onClick={() => setFilter('completed')}
+                onClick={() => setFilter(FilterStatus.Completed)}
               >
                 Completed
               </a>
@@ -169,11 +177,12 @@ export const App: React.FC = () => {
       {/* Add the 'hidden' class to hide the message smoothly */}
       <div
         data-cy="ErrorNotification"
-        className={
-          error
-            ? 'notification is-danger is-light has-text-weight-normal'
-            : 'notification is-danger is-light has-text-weight-normal hidden'
-        }
+        className={cn(
+          'notification is-danger is-light has-text-weight-normal',
+          {
+            hidden: !error,
+          },
+        )}
       >
         <button
           data-cy="HideErrorButton"
